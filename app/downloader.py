@@ -95,15 +95,15 @@ class Downloader:
         found = []
 
         for _id in ids:
-            response = await self.session.get(f"/vacancies/{i}")
+            response = await self.session.get(f"/vacancies/{_id}")
 
             if response.status == 400:
                 raise aiohttp.web_exceptions.HTTPBadRequest()
 
             content = await response.json()
 
-            found += self._parse_vacancy(content)
+            found.append(self._parse_vacancy(content))
 
-            time.sleep(0.05)
+            time.sleep(0.5)
 
         return found
