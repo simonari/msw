@@ -1,4 +1,5 @@
 import asyncio
+import json
 import time
 import datetime
 import re
@@ -15,11 +16,11 @@ class Downloader:
         self.session: aiohttp.ClientSession = self._open_session()
 
     @staticmethod
-    def _open_session():
+    def _open_session() -> aiohttp.ClientSession:
         return aiohttp.ClientSession(BASE_URL_API, headers=HEADERS)
 
-    def _close_session(self):
-        self.session.close()
+    async def close_session(self) -> None:
+        await self.session.close()
 
     async def _get_total_pages(self, params) -> int:
         response = await self.session.get("/vacancies", params=params)
