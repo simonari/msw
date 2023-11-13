@@ -6,55 +6,66 @@ import re
 import aiohttp
 import aiohttp.web_exceptions
 
+from .services import DataBaseManger
+from . import custom_typings as ct
+
 BASE_URL_API = "https://api.hh.ru/"
 HEADERS = {"User-Agent": "Magistracy Diploma/0.1 (vsimonari@gmail.com)"}
 HTML_TAG_PATTERN = re.compile("<.*?>")
 
+response_type = dict[str, str | list[str]]
+
 
 class Downloader:
-    def __init__(self):
-        self.session: aiohttp.ClientSession = self._open_session()
+    def __init__(self, query):
+        self.query: str = query
+        self.total_pages: int = 0
+        self.ids: list[int] = []
 
-    @staticmethod
-    def _open_session() -> aiohttp.ClientSession:
-        return aiohttp.ClientSession(BASE_URL_API, headers=HEADERS)
+        self.params = {
+            "per_page": "50",
+            "text": f"{query}"
+        }
 
-    async def close_session(self) -> None:
-        await self.session.close()
+    async def run(self) -> list[ct.response]:
+        await self._get_total_pages()
+        await self._get_ids()
+        return await self._get_vacancies()
 
-    async def _get_total_pages(self, params) -> int:
-        response = await self.session.get("/vacancies", params=params)
-
-        if response.status == 400:
-            raise aiohttp.web_exceptions.HTTPBadRequest()
-
-        content = await response.json()
-
-        return content.get("pages")
-
-    @staticmethod
-    def _parse_page(content) -> list[int]:
-        return [vacancy["id"] for vacancy in content["items"]]
-
-    async def get_ids(self, params) -> list[int]:
-        pages_total = await self._get_total_pages(params)
-
-        ids = []
-        for p in range(pages_total):
-            params["page"] = p
-
-            response = await self.session.get("/vacancies", params=params)
+    async def _get_total_pages(self):
+        async with aiohttp.ClientSession(BASE_URL_API, headers=HEADERS) as session:
+            response = await session.get("/vacancies", params=self.params)
 
             if response.status == 400:
                 raise aiohttp.web_exceptions.HTTPBadRequest()
 
             content = await response.json()
 
-            ids += self._parse_page(content)
+        self.total_pages = content.get("pages")
 
-            time.sleep(0.05)
+    @staticmethod
+    def _parse_page(content) -> list[int]:
+        return [vacancy["id"] for vacancy in content["items"]]
 
-        return ids
+    async def _get_ids(self):
+        async with aiohttp.ClientSession(BASE_URL_API, headers=HEADERS) as session:
+            ids = []
+            params = self.params.copy()
+            for p in range(self.total_pages):
+                params["page"] = str(p)
+
+                response = await session.get("/vacancies", params=params)
+
+                if response.status == 400:
+                    raise aiohttp.web_exceptions.HTTPBadRequest()
+
+                content = await response.json()
+
+                ids += self._parse_page(content)
+
+                time.sleep(0.5)
+
+        self.ids = ids
 
     @staticmethod
     def _parse_vacancy(content) -> dict[str, str | list[str]]:
@@ -86,25 +97,22 @@ class Downloader:
             "published_at": datetime.datetime.strptime(content.get("published_at").split("T")[0], "%Y-%m-%d"),
         }
 
-    async def get_vacancies(self, query):
-        params = {
-            "per_page": "100",
-            "text": f"{query}"
-        }
-
-        ids = await self.get_ids(params)
+    async def _get_vacancies(self) -> list[ct.response]:
         found = []
+        db = DataBaseManger()
 
-        for _id in ids:
-            response = await self.session.get(f"/vacancies/{_id}")
+        async with aiohttp.ClientSession(BASE_URL_API, headers=HEADERS) as session:
 
-            if response.status == 400:
-                raise aiohttp.web_exceptions.HTTPBadRequest()
+            for _id in self.ids:
+                response = await session.get(f"/vacancies/{_id}")
 
-            content = await response.json()
+                if response.status == 400:
+                    raise aiohttp.web_exceptions.HTTPBadRequest()
 
-            found.append(self._parse_vacancy(content))
+                content = await response.json()
+                found.append(self._parse_vacancy(content))
 
-            time.sleep(0.5)
+                time.sleep(0.5)
 
+        await db.add_data(found)
         return found
