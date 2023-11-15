@@ -17,17 +17,17 @@ response_type = dict[str, str | list[str]]
 
 
 class Downloader:
-    def __init__(self, query):
+    def __init__(self, query: str):
         self.query: str = query
         self.total_pages: int = 0
         self.ids: list[int] = []
 
         self.params = {
-            "per_page": "50",
+            "per_page": "100",
             "text": f"{query}"
         }
 
-    async def run(self) -> list[ct.response]:
+    async def run(self) -> str:
         await self._get_total_pages()
         await self._get_ids()
         return await self._get_vacancies()
@@ -97,7 +97,7 @@ class Downloader:
             "published_at": datetime.datetime.strptime(content.get("published_at").split("T")[0], "%Y-%m-%d"),
         }
 
-    async def _get_vacancies(self) -> list[ct.response]:
+    async def _get_vacancies(self) -> str:
         found = []
         db = DataBaseManger()
 
@@ -114,5 +114,5 @@ class Downloader:
 
                 time.sleep(0.5)
 
-        await db.add_data(found)
-        return found
+        num_entries = await db.add_data(found)
+        return f"Added {num_entries} entries"
