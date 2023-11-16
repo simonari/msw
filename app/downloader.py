@@ -1,5 +1,3 @@
-import asyncio
-import json
 import time
 import datetime
 import re
@@ -7,7 +5,6 @@ import aiohttp
 import aiohttp.web_exceptions
 
 from .services import DataBaseManger
-from . import custom_typings as ct
 
 BASE_URL_API = "https://api.hh.ru/"
 HEADERS = {"User-Agent": "Magistracy Diploma/0.1 (vsimonari@gmail.com)"}
@@ -97,7 +94,7 @@ class Downloader:
             "published_at": datetime.datetime.strptime(content.get("published_at").split("T")[0], "%Y-%m-%d"),
         }
 
-    async def _get_vacancies(self) -> str:
+    async def _get_vacancies(self):
         found = []
         db = DataBaseManger()
 
@@ -114,5 +111,4 @@ class Downloader:
 
                 time.sleep(0.5)
 
-        num_entries = await db.add_data(found)
-        return f"Added {num_entries} entries"
+        await db.add_data(found)
