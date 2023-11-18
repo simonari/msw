@@ -9,4 +9,5 @@ loop = asyncio.get_event_loop()
 @celery.task(name="download")
 def download(query: str):
     d = Downloader(query)
-    loop.run_until_complete(d.run())
+    loop.create_task(d.run())
+    # loop.run_in_executor(None, lambda: asyncio.run(d.run()))
