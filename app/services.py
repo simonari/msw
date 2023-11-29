@@ -4,7 +4,7 @@ from . import database
 from . import models
 
 from . import custom_typings as ct
-
+from .logger import logger
 
 class DataBaseManger:
     def __init__(self):
@@ -23,6 +23,7 @@ class DataBaseManger:
 
     async def add_data(self, data: ct.response):
         # TODO: do it with async context manager
+        logger.info(f"({id(self)}): Establishing session with database")
         session = self.session()
         # getting ids that we want to add
         missing = set([i["id"] for i in data])
@@ -36,9 +37,13 @@ class DataBaseManger:
 
         # creating a list of items that we want to add
         to_add = [models.Vacancy(**item) for item in data if item["id"] in missing]
+        logger.info(f"({id(self)}): {len(to_add)} / {len(data)} will be added")
 
         # adding items and saving state of database
+        logger.info(f"({id(self)}): Trying to add to database")
         session.add_all(to_add)
+        logger.info(f"({id(self)}): Committing changes")
         await session.commit()
         # closing session
         await session.close()
+        logger.info(f"({id(self)}): Session closed")

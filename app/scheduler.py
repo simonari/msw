@@ -5,6 +5,8 @@ import json
 import os
 
 from .task_manager import download
+from .logger import logger
+
 scheduler = Scheduler()
 
 
@@ -12,10 +14,12 @@ class DownloadSchedule(Scheduler):
     DEFAULT_CONFIG_PATH = "timetable.json"
 
     def __init__(self, /, config_path: str = DEFAULT_CONFIG_PATH):
+        logger.info(f"Instantiating Scheduler")
         super().__init__()
         self._loop = asyncio.get_event_loop()
         self._pending: asyncio.Task | None = None
         self._config_path = config_path
+        logger.info(f"Loading data from config")
         self._setup()
 
     def _setup(self):
@@ -36,9 +40,13 @@ class DownloadSchedule(Scheduler):
                 .do(download, task["query"]) \
                 .tag("download")
 
+        logger.info(f"{len(schedule)} scheduled tasks was loaded")
+
     def _update_config(self, data: list[dict]):
         with open(self._config_path, "w") as f:
             json.dump(data, f, indent=2)
+
+        logger.info(f"Schedule config updated")
 
     @staticmethod
     def _create_task(query, _time):
@@ -53,12 +61,12 @@ class DownloadSchedule(Scheduler):
                 # TODO: log this
                 pass
 
-        with open(self._config_path, "w") as f:
-            schedule.append(self._create_task(query, _time))
-            json.dump(schedule, f, indent=2)
+        schedule.append(self._create_task(query, _time))
+        self._update_config(schedule)
+        logger.info(f"Added task ({query}) at ({_time}) to schedule")
 
     def _remove_from_config(self, query, _time):
-        with open(self._config_path, "rw") as f:
+        with open(self._config_path, "r") as f:
             schedule = []
             try:
                 schedule = json.load(f)
@@ -70,7 +78,10 @@ class DownloadSchedule(Scheduler):
                 if task["query"] == query and task["time"] == _time:
                     del task
 
-            json.dump(schedule, f, indent=2)
+        self._update_config(schedule)
+        logger.info(f"Removed task ({query}) at ({_time}) from schedule")
+
+    # TODO: Overload run_pending() method to log moment of execution of task
 
     async def _start_pending(self):
         while True:
@@ -82,16 +93,21 @@ class DownloadSchedule(Scheduler):
 
     def start(self):
         # self._loop.run_in_executor(None, lambda: asyncio.run(self._start_pending()))
+        logger.info(f"Scheduler connecting to asyncio loop")
         self._pending = self._loop.create_task(self._start_pending())
+        logger.info(f"Scheduler connected")
 
     def stop(self):
         if self._pending is None:
             return
-
+        logger.info(f"Scheduler detaching from asyncio loop")
         self._pending.cancel()
+        logger.info(f"Scheduler detached")
 
     @staticmethod
     def with_restart(foo):
+        logger.info(f"Scheduler restarting")
+
         def inner(self, *args, **kwargs):
             self.stop()
             foo(self, *args, *kwargs)

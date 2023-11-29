@@ -5,6 +5,7 @@ import aiohttp
 import aiohttp.web_exceptions
 
 from .services import DataBaseManger
+from .logger import logger
 
 BASE_URL_API = "https://api.hh.ru/"
 HEADERS = {"User-Agent": "Magistracy Diploma/0.1 (vsimonari@gmail.com)"}
@@ -30,6 +31,7 @@ class Downloader:
         return await self._get_vacancies()
 
     async def _get_total_pages(self):
+        logger.info(f"({id(self)}): Getting number of pages")
         async with aiohttp.ClientSession(BASE_URL_API, headers=HEADERS) as session:
             response = await session.get("/vacancies", params=self.params)
 
@@ -39,12 +41,14 @@ class Downloader:
             content = await response.json()
 
         self.total_pages = content.get("pages")
+        logger.info(f"({id(self)}): There is {self.total_pages} pages")
 
     @staticmethod
     def _parse_page(content) -> list[int]:
         return [vacancy["id"] for vacancy in content["items"]]
 
     async def _get_ids(self):
+        logger.info(f"({id(self)}): Getting ids of vacancies")
         async with aiohttp.ClientSession(BASE_URL_API, headers=HEADERS) as session:
             ids = []
             params = self.params.copy()
@@ -63,6 +67,7 @@ class Downloader:
                 time.sleep(0.5)
 
         self.ids = ids
+        logger.info(f"({id(self)}): There is {len(self.ids)} ids")
 
     @staticmethod
     def _parse_vacancy(content) -> dict[str, str | list[str]]:
@@ -95,8 +100,8 @@ class Downloader:
         }
 
     async def _get_vacancies(self):
+        logger.info(f"({id(self)}): Getting vacancies data")
         found = []
-        db = DataBaseManger()
 
         async with aiohttp.ClientSession(BASE_URL_API, headers=HEADERS) as session:
 
@@ -111,4 +116,10 @@ class Downloader:
 
                 time.sleep(0.5)
 
+        logger.info(f"({id(self)}): There is {len(found)} vacancies")
+        logger.info(f"({id(self)}): Instantiating DataBaseManager")
+        db = DataBaseManger()
+        logger.info(f"({id(self)}): Manager instantiated on {id(db)}")
+        logger.info(f"({id(self)}): Trying to save them to database")
         await db.add_data(found)
+        logger.info(f"({id(self)}): Data saved")
