@@ -37,7 +37,7 @@ class DownloadSchedule(Scheduler):
 
         for task in schedule:
             self.every().day.at(task["time"]) \
-                .do(download, task["query"]) \
+                .do(download, task["api"], task["query"]) \
                 .tag("download")
 
         logger.info(f"{len(schedule)} scheduled tasks was loaded")
@@ -49,10 +49,10 @@ class DownloadSchedule(Scheduler):
         logger.info(f"Schedule config updated")
 
     @staticmethod
-    def _create_task(query, _time):
-        return {"time": _time, "query": query}
+    def _create_task(api: str, query: str, _time: str):
+        return {"api": api, "time": _time, "query": query}
 
-    def _add_to_config(self, query, _time):
+    def _add_to_config(self, api: str, query: str, _time: str):
         with open(self._config_path, "r") as f:
             schedule = []
             try:
@@ -61,10 +61,11 @@ class DownloadSchedule(Scheduler):
                 # TODO: log this
                 pass
 
-        schedule.append(self._create_task(query, _time))
+        schedule.append(self._create_task(api, query, _time))
         self._update_config(schedule)
-        logger.info(f"Added task ({query}) at ({_time}) to schedule")
+        logger.info(f"Added task ({query}) to API ({api}) at ({_time}) to schedule")
 
+    # TODO
     def _remove_from_config(self, query, _time):
         with open(self._config_path, "r") as f:
             schedule = []
@@ -116,15 +117,16 @@ class DownloadSchedule(Scheduler):
         return inner
 
     @with_restart
-    def add_task(self, query, _time):
+    def add_task(self, api: str, query: str, _time: str):
         self.every().day.at(_time) \
-            .do(download, query) \
+            .do(download, api, query) \
             .tag("download")
 
-        self._add_to_config(query, _time)
+        self._add_to_config(api, query, _time)
 
+    # TODO
     @with_restart
-    def remove_task(self, query, _time):
+    def remove_task(self, api: str, query: str, _time: str):
         jobs = self.get_jobs()
 
         for job in jobs:
