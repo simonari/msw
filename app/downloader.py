@@ -7,16 +7,25 @@ import aiohttp.web_exceptions
 from .services import DataBaseManger
 from .logger import logger
 
-BASE_URL_API = "https://api.hh.ru/"
 HEADERS = {"User-Agent": "Magistracy Diploma/0.1 (vsimonari@gmail.com)"}
 HTML_TAG_PATTERN = re.compile("<.*?>")
 
 response_type = dict[str, str | list[str]]
 
 
-class Downloader:
+class BaseDownloader:
     def __init__(self, query: str):
         self.query: str = query
+
+    async def run(self):
+        pass
+
+
+class DownloaderHH(BaseDownloader):
+    BASE_URL_API = "https://api.hh.ru/"
+
+    def __init__(self, query: str):
+        super().__init__(query)
         self.total_pages: int = 0
         self.ids: list[int] = []
 
@@ -32,7 +41,7 @@ class Downloader:
 
     async def _get_total_pages(self):
         logger.info(f"({id(self)}): Getting number of pages")
-        async with aiohttp.ClientSession(BASE_URL_API, headers=HEADERS) as session:
+        async with aiohttp.ClientSession(self.BASE_URL_API, headers=HEADERS) as session:
             response = await session.get("/vacancies", params=self.params)
 
             if response.status == 400:
@@ -49,7 +58,7 @@ class Downloader:
 
     async def _get_ids(self):
         logger.info(f"({id(self)}): Getting ids of vacancies")
-        async with aiohttp.ClientSession(BASE_URL_API, headers=HEADERS) as session:
+        async with aiohttp.ClientSession(self.BASE_URL_API, headers=HEADERS) as session:
             ids = []
             params = self.params.copy()
             for p in range(self.total_pages):
@@ -103,7 +112,7 @@ class Downloader:
         logger.info(f"({id(self)}): Getting vacancies data")
         found = []
 
-        async with aiohttp.ClientSession(BASE_URL_API, headers=HEADERS) as session:
+        async with aiohttp.ClientSession(self.BASE_URL_API, headers=HEADERS) as session:
 
             for _id in self.ids:
                 response = await session.get(f"/vacancies/{_id}")
@@ -123,3 +132,21 @@ class Downloader:
         logger.info(f"({id(self)}): Trying to save them to database")
         await db.add_data(found)
         logger.info(f"({id(self)}): Data saved")
+
+
+class Downloader:
+    _api_map = {
+        "hh": DownloaderHH,
+    }
+
+    def __init__(self, api: str, query: str):
+        self.api = api.lower()
+        self.query = query
+
+    async def run(self):
+        downloader = self._api_map.get(self.api)
+        if downloader is None:
+            raise RuntimeError(f"Such API [{self.api}] is not integrated yet!")
+
+        downloader = downloader(self.query)
+        await downloader.run()

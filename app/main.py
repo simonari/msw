@@ -1,9 +1,7 @@
-import aiohttp.web_response
-from fastapi import FastAPI, Depends, Response
+from fastapi import FastAPI
 
 from .logger import logger
 from .scheduler import DownloadSchedule
-from .downloader import Downloader
 from . import task_manager as tm
 
 app = FastAPI()
@@ -20,6 +18,6 @@ async def get_vacancy(query: str):
     return 200
 
 
-@app.get("/scheduler/add/{time}/{query}")
-async def add_task(time: str, query: str):
-    scheduler.add_task(query, time)
+@app.get("/scheduler/add/{api}/{time}/{query}")
+async def add_task(api: str, time: str, query: str):
+    scheduler.add_task(api, query, time)
