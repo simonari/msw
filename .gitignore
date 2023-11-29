@@ -1,2 +1,4 @@
 .idea/
 pg-db/
+.log
+timetable.json
