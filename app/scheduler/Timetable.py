@@ -48,6 +48,7 @@ class BaseTimetableFile:
 
     def _is_file_local(self) -> bool:
         if self._dir == "" and self._filename is not None:
+            self._dir = os.getcwd()
             return True
 
         return False
@@ -96,7 +97,10 @@ class BaseTimetableFile:
         if self._is_empty():
             self._initial_fill()
 
-    def add(self, entry: Entry | list[Entry]) -> None:
+    def add(self, entry: Entry) -> None:
+        pass
+
+    def add_batch(self, entries: list[Entry]) -> None:
         pass
 
     def remove(self, entry: Entry) -> None:
@@ -106,88 +110,39 @@ class BaseTimetableFile:
         pass
 
 
-# class TimetableFileJSON(BaseTimetableFile):
-#     def __init__(
-#             self,
-#             dir_: str | None = None,
-#             name: str | None = None
-#     ):
-#         super().__init__(dir_, name, "json")
-#
-#     def _rewrite_file(self, data: list[Entry]):
-#         with open(self._path, "w") as f:
-#             json.dump(data, f, indent=2)
-#
-#     def _initial_fill(self) -> None:
-#         if not self._is_empty():
-#             return
-#
-#         self._rewrite_file([])
-#
-#     @staticmethod
-#     def _is_time_provided(entry: Entry):
-#         t = entry.get("time")
-#         if t is None:
-#             raise TimetableEntryMissingTime("No time was provided")
-#
-#         try:
-#             datetime.strptime(t, "%H:%M")
-#         except Exception as e:
-#             raise TimetableEntryWrongTimeFormat("Time was provided in wrong format")
-#
-#     def _add_single(self, entry: Entry) -> None:
-#         content = self.get()
-#         self._is_time_provided(entry)
-#         content.append(entry)
-#         content = self._sort(content)
-#         self._rewrite_file(content)
-#
-#     def _add_bulk(self, entries: list[Entry]) -> None:
-#         content = self.get()
-#         [self._is_time_provided(e) for e in entries]
-#         content += entries
-#         content = self._sort(content)
-#         self._rewrite_file(content)
-#
-#     @staticmethod
-#     def _sort(content: list[Entry]) -> list[Entry]:
-#         return sorted(content, key=lambda d: d["time"])
-#
-#     def add(self, entry: Entry | list[Entry]) -> None:
-#         if isinstance(entry, list):
-#             self._add_bulk(entry)
-#             return
-#
-#         self._add_single(entry)
-#
-#     def remove(self, entry: Entry) -> None:
-#         pass
-#
-#     def get(self) -> list[Entry]:
-#         with open(self._path, "r") as f:
-#             return json.load(f)
-#
-#
-# class Timetable:
-#     def __init__(
-#             self,
-#             dir_: str | None = None,
-#             name: str | None = None,
-#             fmt: str | None = None
-#     ):
-#         self.timetable: BaseTimetableFile
-#
-#         match fmt:
-#             case "json":
-#                 self.timetable = TimetableFileJSON(dir_, name)
-#             case _:
-#                 raise TimetableUnexpectedFormat("This format is not supported")
-#
-#     def get(self) -> list[Entry]:
-#         return self.timetable.get()
-#
-#     def add(self, entry: Entry | list[Entry]) -> None:
-#         self.timetable.add(entry)
-#
-#     def remove(self):
-#         pass
+class TimetableFileJSON(BaseTimetableFile):
+    def __init__(self, path: Path | None = None):
+        super().__init__(path)
+
+    def _initial_fill(self) -> None:
+        with open(self._path, "w") as f:
+            json.dump([], f)
+
+    def _rewrite(self, data: list[Entry]):
+        with open(self._path, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def add(self, to_add: Entry) -> None:
+        entries = self.get()
+        entries.append(to_add)
+
+        self._rewrite(entries)
+
+    def add_batch(self, to_add: list[Entry]) -> None:
+        entries = self.get()
+        entries.extend(to_add)
+
+        self._rewrite(entries)
+
+    def remove(self, entry: Entry) -> None:
+        entries = self.get()
+
+        try:
+            entries.remove(entry)
+            self._rewrite(entries)
+        except ValueError:
+            pass
+
+    def get(self) -> list[Entry]:
+        with open(self._path, "r") as f:
+            return json.load(f)

@@ -32,6 +32,19 @@ def instantiate_base_timetable():
     os.removedirs(dir_)
 
 
+@pytest.fixture
+def instantiate_json_timetable():
+    timetable = TimetableFileJSON()
+
+    path = timetable._path
+    dir_ = timetable._dir
+
+    yield timetable, path, dir
+
+    os.remove(path)
+    os.removedirs(dir_)
+
+
 class TestBaseTimetableFile:
     class TestFileCreation:
         def test_no_args(self, instantiate_base_timetable):
@@ -75,146 +88,77 @@ class TestBaseTimetableFile:
             os.remove(path)
             os.removedirs(dir_)
 
-# class TestTimetableFileJSON:
-#     class TestFileCreation:
-#         def test_no_args(self):
-#             tt = TimetableFileJSON()
-#             assert os.path.exists(tt.DEFAULT_DIR)
-#
-#             path = os.path.join(tt.DEFAULT_DIR, f"{tt.DEFAULT_NAME}.{tt._fmt}")
-#             assert os.path.exists(path)
-#
-#             os.remove(path)
-#             os.rmdir(tt.DEFAULT_DIR)
-#
-#         def test_with_args(self):
-#             dir_ = "abc"
-#             name = "def"
-#
-#             tt = TimetableFileJSON(dir_, name)
-#             assert os.path.exists(dir_)
-#
-#             path = os.path.join(dir_, f"{name}.{tt._fmt}")
-#             assert os.path.exists(path)
-#
-#             os.remove(path)
-#             os.rmdir(dir_)
-#
-#         def test_initial_fill(self):
-#             tt = TimetableFileJSON()
-#
-#             with open(tt._path, "r") as f:
-#                 content = json.load(f)
-#
-#             assert content == []
-#
-#             os.remove(tt._path)
-#             os.rmdir(tt._dir)
-#
-#     class TestGetInterface:
-#         def test_get_on_creation(self):
-#             tt = TimetableFileJSON()
-#
-#             result = tt.get()
-#
-#             assert result == []
-#
-#             os.remove(tt._path)
-#             os.rmdir(tt._dir)
-#
-#     class TestAddInterface:
-#         def test_add_single(self):
-#             tt = TimetableFileJSON()
-#
-#             try:
-#                 tt.add({"test": "test"})
-#             except Exception as e:
-#                 assert isinstance(e, TimetableEntryMissingTime)
-#
-#             try:
-#                 tt.add({"test": "test", "time": "15:15:00"})
-#             except Exception as e:
-#                 assert isinstance(e, TimetableEntryWrongTimeFormat)
-#
-#             try:
-#                 tt.add({"test": "test", "time": "15"})
-#             except Exception as e:
-#                 assert isinstance(e, TimetableEntryWrongTimeFormat)
-#
-#             tt.add({"test": "test", "time": "16:00"})
-#
-#             result = tt.get()
-#             assert result == [{"test": "test", "time": "16:00"}]
-#
-#             tt.add({"test": "test", "time": "15:00"})
-#
-#             result = tt.get()
-#             assert result == [
-#                 {"test": "test", "time": "15:00"},
-#                 {"test": "test", "time": "16:00"}
-#             ]
-#
-#             os.remove(tt._path)
-#             os.rmdir(tt._dir)
-#
-#         def test_add_bulk(self):
-#             tt = TimetableFileJSON()
-#
-#             try:
-#                 tt.add([
-#                     {"test1": "test1"},
-#                     {"test2": "test2"},
-#                 ])
-#             except Exception as e:
-#                 assert isinstance(e, TimetableEntryMissingTime)
-#
-#             try:
-#                 tt.add([
-#                     {"test1": "test1", "time": "15:00"},
-#                     {"test2": "test2"},
-#                 ])
-#             except Exception as e:
-#                 assert isinstance(e, TimetableEntryMissingTime)
-#
-#             try:
-#                 tt.add([
-#                     {"test1": "test1", "time": "16:00"},
-#                     {"test2": "test2", "time": "16"},
-#                 ])
-#             except Exception as e:
-#                 assert isinstance(e, TimetableEntryWrongTimeFormat)
-#
-#             try:
-#                 tt.add([
-#                     {"test1": "test1", "time": "16:00"},
-#                     {"test2": "test2", "time": "16:00:01"},
-#                 ])
-#             except Exception as e:
-#                 assert isinstance(e, TimetableEntryWrongTimeFormat)
-#
-#             tt.add([
-#                 {"test1": "test1", "time": "17:00"},
-#                 {"test2": "test2", "time": "16:00"},
-#             ])
-#
-#             result = tt.get()
-#             assert result == [
-#                 {"test2": "test2", "time": "16:00"},
-#                 {"test1": "test1", "time": "17:00"},
-#             ]
-#
-#             tt.add([
-#                 {"test3": "test3", "time": "19:00"},
-#                 {"test4": "test4", "time": "13:00"},
-#             ])
-#
-#             result = tt.get()
-#             assert result == [
-#                 {"test4": "test4", "time": "13:00"},
-#                 {"test2": "test2", "time": "16:00"},
-#                 {"test1": "test1", "time": "17:00"},
-#                 {"test3": "test3", "time": "19:00"},
-#             ]
-#
-#             os.remove(tt._path)
-#             os.rmdir(tt._dir)
+
+class TestTimetableFileJSON:
+    class TestFileCreation:
+        def test_no_args(self):
+            timetable = TimetableFileJSON()
+
+            dir_ = timetable._dir
+            path = timetable._path
+
+            assert os.path.isdir(dir_)
+            assert os.path.isfile(path)
+
+            os.remove(path)
+            os.removedirs(dir_)
+
+        def test_local_file(self):
+            timetable = TimetableFileJSON("timetable.json")
+
+            path = timetable._path
+
+            assert os.path.isfile(path)
+
+            os.remove(path)
+
+        def test_nested_dirs(self):
+            tt = TimetableFileJSON("nested/dir/file")
+
+            path = tt._path
+            dir_ = tt._dir
+
+            assert os.path.isfile(path)
+
+            os.remove(path)
+            os.removedirs(dir_)
+
+    class TestContentOperations:
+        def test_initial_fill(self, instantiate_json_timetable):
+            timetable, path, dir_ = instantiate_json_timetable
+
+            assert timetable.get() == []
+
+        def test_single_add(self, instantiate_json_timetable):
+            timetable, path, dir_ = instantiate_json_timetable
+
+            to_add = [{"test": "test"}, {"test2": "test2"}]
+
+            for idx, item in enumerate(to_add):
+                timetable.add(item)
+                assert timetable.get() == to_add[:idx+1]
+
+        def test_batch_add(self, instantiate_json_timetable):
+            timetable, path, dir_ = instantiate_json_timetable
+
+            to_add = [{"test": "test"}, {"test2": "test2"}]
+            timetable.add_batch(to_add)
+
+            assert timetable.get() == to_add
+
+        def test_remove(self, instantiate_json_timetable):
+            timetable, path, dir_ = instantiate_json_timetable
+
+            to_add = [{"test": "test"}, {"test2": "test2"}]
+            to_remove = {"test": "test"}
+
+            timetable.add_batch(to_add)
+
+            timetable.remove(to_remove)
+
+            assert timetable.get() == [to_add[1]]
+
+            to_remove = {"not_in": "not_in"}
+            timetable.remove(to_remove)
+
+            assert timetable.get() == [to_add[1]]
