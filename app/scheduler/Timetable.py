@@ -97,6 +97,17 @@ class BaseTimetableFile:
         if self._is_empty():
             self._initial_fill()
 
+    @staticmethod
+    def _validate_time_field(entry: Entry):
+        time_ = entry.get("time")
+        if not time_:
+            raise TimetableEntryMissingTime
+
+        try:
+            datetime.strptime(time_, "%H:%M")
+        except ValueError:
+            raise TimetableEntryWrongTimeFormat
+
     def add(self, entry: Entry) -> None:
         pass
 
@@ -123,22 +134,27 @@ class TimetableFileJSON(BaseTimetableFile):
             json.dump(data, f, indent=2)
 
     def add(self, to_add: Entry) -> None:
+        self._validate_time_field(to_add)
+
         entries = self.get()
         entries.append(to_add)
 
         self._rewrite(entries)
 
     def add_batch(self, to_add: list[Entry]) -> None:
+        [self._validate_time_field(item) for item in to_add]
+
         entries = self.get()
         entries.extend(to_add)
 
         self._rewrite(entries)
 
-    def remove(self, entry: Entry) -> None:
+    def remove(self, to_remove: Entry) -> None:
+        self._validate_time_field(to_remove)
         entries = self.get()
 
         try:
-            entries.remove(entry)
+            entries.remove(to_remove)
             self._rewrite(entries)
         except ValueError:
             pass

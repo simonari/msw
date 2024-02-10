@@ -132,25 +132,58 @@ class TestTimetableFileJSON:
         def test_single_add(self, instantiate_json_timetable):
             timetable, path, dir_ = instantiate_json_timetable
 
-            to_add = [{"test": "test"}, {"test2": "test2"}]
+            to_add = {"time": "00:00"}
+            accumulated = [to_add]
+            timetable.add(to_add)
 
-            for idx, item in enumerate(to_add):
-                timetable.add(item)
-                assert timetable.get() == to_add[:idx+1]
+            assert timetable.get() == accumulated
+
+            to_add = {"time": "01:00"}
+            accumulated.append(to_add)
+            timetable.add(to_add)
+
+            assert timetable.get() == accumulated
+
+            try:
+                timetable.add({"without_time_field": ""})
+            except Exception as e:
+                assert isinstance(e, TimetableEntryMissingTime)
+
+            try:
+                timetable.add({"time": "wrong_time_format"})
+            except Exception as e:
+                assert isinstance(e, TimetableEntryWrongTimeFormat)
 
         def test_batch_add(self, instantiate_json_timetable):
             timetable, path, dir_ = instantiate_json_timetable
 
-            to_add = [{"test": "test"}, {"test2": "test2"}]
+            to_add = [{"time": "00:00"}, {"time": "01:00"}]
+            accumulated = to_add
             timetable.add_batch(to_add)
 
-            assert timetable.get() == to_add
+            assert timetable.get() == accumulated
+
+            to_add = [{"time": "02:00"}, {"time": "03:00"}]
+            accumulated.extend(to_add)
+            timetable.add_batch(to_add)
+
+            assert timetable.get() == accumulated
+
+            try:
+                timetable.add_batch([{"without_time_field": ""}, {"time": "12:00"}])
+            except Exception as e:
+                assert isinstance(e, TimetableEntryMissingTime)
+
+            try:
+                timetable.add_batch([{"time": "wrong_time_format"}, {"time": "12:00"}])
+            except Exception as e:
+                assert isinstance(e, TimetableEntryWrongTimeFormat)
 
         def test_remove(self, instantiate_json_timetable):
             timetable, path, dir_ = instantiate_json_timetable
 
-            to_add = [{"test": "test"}, {"test2": "test2"}]
-            to_remove = {"test": "test"}
+            to_add = [{"time": "00:00"}, {"time": "01:00"}]
+            to_remove = {"time": "00:00"}
 
             timetable.add_batch(to_add)
 
@@ -158,7 +191,18 @@ class TestTimetableFileJSON:
 
             assert timetable.get() == [to_add[1]]
 
-            to_remove = {"not_in": "not_in"}
+            to_remove = {"time": "02:00"}
             timetable.remove(to_remove)
 
             assert timetable.get() == [to_add[1]]
+
+            try:
+                timetable.remove({"without_time_field": ""})
+            except Exception as e:
+                assert isinstance(e, TimetableEntryMissingTime)
+
+            try:
+                timetable.remove({"time": "wrong_time_format"})
+            except Exception as e:
+                assert isinstance(e, TimetableEntryWrongTimeFormat)
+
