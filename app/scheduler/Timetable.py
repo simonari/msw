@@ -162,3 +162,18 @@ class TimetableFileJSON(BaseTimetableFile):
     def get(self) -> list[Entry]:
         with open(self._path, "r") as f:
             return json.load(f)
+
+
+class TimetableFactory:
+    DEFAULT_PATH = ".timetables/timetable.json"
+    SUPPORTED_FORMATS = ["json", ]
+
+    def __init__(self, path: Path = DEFAULT_PATH):
+        self.path = path
+        self.fmt = os.path.splitext(path)[-1]
+
+    def create(self) -> BaseTimetableFile:
+        if self.fmt == ".json":
+            return TimetableFileJSON(self.path)
+        else:
+            raise TimetableUnexpectedFormat("Such format is not supported yet")

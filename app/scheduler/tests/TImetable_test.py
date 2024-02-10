@@ -2,7 +2,7 @@ import pytest
 import os
 import json
 
-from ..Timetable import BaseTimetableFile, TimetableFileJSON
+from ..Timetable import BaseTimetableFile, TimetableFileJSON, TimetableFactory
 from ..Timetable import (
     TimetableEmptyFormat,
     TimetableUnexpectedFormat,
@@ -206,3 +206,33 @@ class TestTimetableFileJSON:
             except Exception as e:
                 assert isinstance(e, TimetableEntryWrongTimeFormat)
 
+
+class TestTimetableFactory:
+    def test_empty(self):
+        factory = TimetableFactory()
+        timetable = factory.create()
+
+        assert isinstance(timetable, TimetableFileJSON)
+
+        os.remove(timetable._path)
+        os.removedirs(timetable._dir)
+
+    def test_json(self):
+        path = "path/to/timetable.json"
+        factory = TimetableFactory(path)
+
+        timetable = factory.create()
+
+        assert isinstance(timetable, TimetableFileJSON)
+
+        os.remove(timetable._path)
+        os.removedirs(timetable._dir)
+
+    def test_not_supported(self):
+        path = "bad.format"
+        factory = TimetableFactory(path)
+
+        try:
+            timetable = factory.create()
+        except Exception as e:
+            assert isinstance(e, TimetableUnexpectedFormat)
