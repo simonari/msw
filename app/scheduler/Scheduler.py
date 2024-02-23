@@ -1,98 +1,85 @@
+import asyncio
 import os
-import json
 
+from .Timetable import BaseTimetableFile, TimetableFactory
+from schedule import Scheduler
 
-class SchedulerTimetableFormatError(ValueError):
-    """Not supported timetable format provided"""
+from typing import Callable
+
+TaskEntry = dict[str, str]
+Path = os.PathLike | str
 
 
 class BaseScheduler:
-    def start_pending(self):
-        pass
+    DEFAULT_TIMETABLE_PATH = ".timetables/timetable.json"
 
-    def stop_pending(self):
-        pass
+    def __init__(self, func: Callable[..., None], path: Path = DEFAULT_TIMETABLE_PATH):
+        self._scheduler = Scheduler()
+        self.timetable: BaseTimetableFile = self._create_timetable(path)
+        self._loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        self._task: asyncio.Task | None = None
+        self.func: Callable[..., None] = func
 
-    def add(self):
-        pass
+        self._load()
 
+    @staticmethod
+    def _create_timetable(path: Path) -> BaseTimetableFile:
+        factory = TimetableFactory(path)
+        return factory.create()
+
+    def start(self):
+        self._task = self._loop.create_task(self._run_pending())
+
+    def stop(self):
+        self._task.cancel()
+
+    async def _run_pending(self):
+        while True:
+            await asyncio.sleep(1)
+            job = self._scheduler.get_jobs()[-1]
+            print("i'm running")
+            self._scheduler.run_pending()
+
+    @staticmethod
+    def _parse_task(task: TaskEntry) -> tuple[str, dict[str, str]]:
+        task_time = task["time"]
+        del task["time"]
+        # returns time and other params
+        return task_time, task
+
+    def _load(self):
+        tasks = self.timetable.get()
+        for task in tasks:
+            time_, params = self._parse_task(task)
+            self._scheduler.every().day.at(time_).do(self.func, **params)
+
+    @staticmethod
+    def with_restart(foo):
+        def inner(self, *args, **kwargs):
+            self.stop()
+            foo(self, *args, **kwargs)
+            self.start()
+
+    def _add_task_to_scheduler(self, task: TaskEntry) -> None:
+        task_copy = task.copy()
+        time_, params = self._parse_task(task_copy)
+        self._scheduler.every().day.at(time_).do(self.func, **params)
+
+    @with_restart
+    def add_batch(self, tasks: list[TaskEntry]) -> None:
+        self.timetable.add_batch(tasks)
+
+        for task in tasks:
+            self._add_task_to_scheduler(task)
+
+    @with_restart
+    def add(self, task: TaskEntry):
+        self.timetable.add(task)
+        self._add_task_to_scheduler(task)
+
+    @with_restart
     def remove(self):
         pass
 
-
-class Scheduler(BaseScheduler):
-    def __init__(
-            self,
-            dir_: str | None = None,
-    ):
-        self.DEFAULT_NAME: str = "timetable"
-        self.DEFAULT_FMT: str = "json"
-        self.AVAILABLE_FMT: set[str] = {"json", }
-        self.DEFAULT_DIR: str = ".timetables"
-
-        self._dir: str
-        self._fmt: str
-        self._filename: str
-        self._path: str
-
-    def _setup_dir(
-            self,
-            dir_: str | None = None
-    ):
-        if dir_ is None:
-            dir_ = self.DEFAULT_DIR
-
-        if not os.path.isdir(dir_):
-            os.makedirs(dir_, exist_ok=True)
-
-        self._dir = dir_
-
-    def _setup_file(
-            self,
-            name: str | None = None,
-            fmt: str | None = None
-    ) -> bool:
-        if name is None:
-            name = self.DEFAULT_NAME
-        if fmt is None:
-            fmt = self.DEFAULT_FMT
-        if fmt not in self.AVAILABLE_FMT:
-            raise SchedulerTimetableFormatError(f"Such format [{fmt}] is not supported")
-
-        filename: str = ".".join([name, fmt])
-        path: str = os.path.join(self._dir, filename)
-
-        was_created: bool = False
-        if not os.path.exists(path):
-            was_created = True
-            open(path, "w").close()
-
-        self._filename = filename
-        self._fmt = fmt
-        self._path = path
-
-        return was_created
-
-    def _rewrite_json(self, data: list[dict]):
-        with open(self._path, "w") as f:
-            json.dump(data, f, indent=2)
-
-    def _initial_fill_json(self):
-        self._rewrite_json([])
-
-    def _initial_fill(self):
-        match self._fmt:
-            case ".json":
-                self._initial_fill_json()
-
-    def _setup(
-            self,
-            dir_: str | None = None,
-            name: str | None = None,
-            fmt: str | None = None
-    ):
-        self._setup_dir(dir_)
-        was_created = self._setup_file(name, fmt)
-
-        if was_created:
-            self._initial_fill()
+    def get(self) -> list[TaskEntry]:
+        return self.timetable.get()

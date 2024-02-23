@@ -4,10 +4,10 @@ import asyncio
 import json
 import os
 
-from .task_manager import download
-from .logger import logger
+from ..task_manager import download
+from ..logger import logger
 
-scheduler = Scheduler()
+# scheduler = Scheduler()
 
 
 class DownloadSchedule(Scheduler):

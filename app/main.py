@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from .logger import logger
-from .scheduler import DownloadSchedule
+from .scheduler.DownloadScheduler import DownloadSchedule
 from . import task_manager as tm
 
 app = FastAPI()
